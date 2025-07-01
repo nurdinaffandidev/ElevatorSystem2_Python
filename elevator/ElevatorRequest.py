@@ -1,6 +1,22 @@
 
 
 class ElevatorRequest:
+    """
+        Represents a request made by a passenger to use the elevator.
+
+        Attributes:
+            start_floor (int): The floor where the passenger is currently located.
+            destination_floor (int): The floor the passenger wants to go to.
+            direction (str): Computed property indicating the travel direction
+                             ('up', 'down', or 'same floor').
+
+        Example:
+            request = ElevatorRequest(3, 7)
+            print(request.start_floor)         # 3
+            print(request.destination_floor)   # 7
+            print(request.direction)           # 'up'
+    """
+
     def __init__(self, start_floor=0, destination_floor=0):
         self._start_floor = start_floor
         self._destination_floor = destination_floor

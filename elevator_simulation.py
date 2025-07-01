@@ -4,6 +4,16 @@ from elevator.ElevatorRequest import ElevatorRequest
 
 
 def get_int_input(prompt, min_val=1):
+    """
+        Prompt the user for an integer input with a minimum value.
+
+        Args:
+            prompt (str): The prompt message to display.
+            min_val (int): The minimum acceptable integer value (inclusive).
+
+        Returns:
+            int: The validated user input as an integer.
+    """
     while True:
         try:
             input_value = int(input(prompt))
@@ -15,6 +25,18 @@ def get_int_input(prompt, min_val=1):
 
 
 def get_int_request_input(prompt, min_val=1, max_val=25, floor_type=""):
+    """
+        Prompt the user for an integer input representing a floor within bounds.
+
+        Args:
+            prompt (str): The prompt message to display.
+            min_val (int): Minimum valid floor.
+            max_val (int): Maximum valid floor.
+            floor_type (str): Description of the floor input (e.g., "Starting", "Destination").
+
+        Returns:
+            int or None: The validated floor number, or None if invalid.
+    """
     try:
         input_value = int(input(prompt))
         if input_value < min_val or input_value > max_val:
@@ -26,6 +48,15 @@ def get_int_request_input(prompt, min_val=1, max_val=25, floor_type=""):
 
 
 def get_bool_input(prompt):
+    """
+        Prompt the user for a yes/no confirmation.
+
+        Args:
+            prompt (str): The message to display.
+
+        Returns:
+            bool: True if user inputs yes/y, False if no/n.
+    """
     while True:
         input_val = input(prompt).strip().lower()
         if input_val in ('yes', 'y'):
@@ -37,10 +68,26 @@ def get_bool_input(prompt):
 
 
 def remove_same_floor_request(elevator_requests):
+    """
+        Remove requests where the start and destination floors are the same.
+
+        Args:
+            elevator_requests (list): List of ElevatorRequest objects.
+
+        Returns:
+            list: Filtered list without same-floor requests.
+    """
     return [request for request in elevator_requests if request.start_floor != request.destination_floor]
 
 
 def main():
+    """
+        Main function to run the elevator simulation.
+
+        - Initializes elevators.
+        - Accepts elevator ride requests.
+        - Runs the simulation.
+    """
     elevators = []
     elevator_requests = []
     num_floors = get_int_input("Please enter the number of floors: ")
@@ -91,6 +138,13 @@ def main():
 
 
 def run_simulation(elevators, elevator_requests):
+    """
+        Runs the simulation by assigning requests to elevators and monitoring completion.
+
+        Args:
+            elevators (list): List of Elevator objects.
+            elevator_requests (list): List of ElevatorRequest objects.
+    """
     summary_dict = dict()
 
     # Start all elevator threads
@@ -125,10 +179,17 @@ def run_simulation(elevators, elevator_requests):
 
 def find_best_elevator(request, elevators):
     """
-        Returns the best elevator for the given request:
+        Return the best elevator for a given request.
         1. Finds all elevators closest to the request start floor.
         2. Among those, prioritizes idle elevators (e.requests is empty).
         3. Falls back to any one if none are idle.
+
+        Args:
+            request (ElevatorRequest): The request to fulfill.
+            elevators (list): List of Elevator objects.
+
+        Returns:
+            Elevator: The best available elevator.
     """
     # Calculate (elevator, distance)
     distances = [(elevator, abs(elevator.current_floor - request.start_floor)) for elevator in elevators]
@@ -147,6 +208,13 @@ def find_best_elevator(request, elevators):
 
 
 def get_summary(summary_dict, elevators):
+    """
+        Prints a summary of elevator movements and efficiency scores.
+
+        Args:
+            summary_dict (dict): Dictionary of elevator names and their handled requests.
+            elevators (list): List of Elevator objects.
+    """
     print("\nMOVEMENT SUMMARY:")
     print("----------------------")
     for elevator_name, requests in summary_dict.items():
