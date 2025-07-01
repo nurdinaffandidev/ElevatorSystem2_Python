@@ -1,5 +1,8 @@
 import threading
 import time
+from asyncio import SelectorEventLoop
+
+from elevator.ElevatorStatus import ElevatorStatus
 
 
 class Elevator(threading.Thread):
@@ -28,7 +31,7 @@ class Elevator(threading.Thread):
         super().__init__()
         self.name = name
         self.current_floor = starting_floor
-        self.status = 'idle'
+        self.status = ElevatorStatus.IDLE
         self.requests = []
         self.stops = 0
         self.total_movement = 0
@@ -66,7 +69,7 @@ class Elevator(threading.Thread):
             4. Simulating unloading time.
         """
         while not self._stop_signal.is_set():
-            if self.status != 'idle':
+            if self.status != ElevatorStatus.IDLE:
                 print(f"<{self.name} - running elevator: {self.status}>")
             with self.lock:
                 if not self.requests:
@@ -79,25 +82,25 @@ class Elevator(threading.Thread):
             # 1. Move to request's start floor (pickup)
             if self.current_floor != current_request.start_floor:
                 print(f"--> {self.name} moving to pickup [{current_request}] at floor {current_request.start_floor} | current floor: {self.current_floor}")
-                self.status = 'moving to pickup'
+                self.status = ElevatorStatus.MOVING_UP if self.current_floor < current_request.start_floor else ElevatorStatus.MOVING_DOWN
                 self.move_to_floor(current_request.start_floor)
                 self.stops += 1 # adding stop here for condition move to request's start floor (pickup)
 
             # 2. Simulate loading at pickup floor
             print(f"<< {self.name} picked up [{current_request}] at floor {current_request.start_floor} >>")
-            self.status = 'loading'
+            self.status = ElevatorStatus.LOADING
             time.sleep(2)  # Simulate loading
 
             # 3. Move to destination floor
             print(f"--> {self.name} moving to drop-off [{current_request}] at floor {current_request.destination_floor} | current floor: {self.current_floor}")
-            self.status = 'moving to drop-off'
+            self.status = ElevatorStatus.MOVING_UP if self.current_floor < current_request.destination_floor else ElevatorStatus.MOVING_DOWN
             self.move_to_floor(current_request.destination_floor)
 
             # 4. Unload at destination
-            self.status = 'unloading'
+            self.status = ElevatorStatus.UNLOADING
             print(f"<< {self.name} dropped off [{current_request}] at floor {current_request.destination_floor} >>")
             time.sleep(2)  # Simulate unloading
-            self.status = 'idle'
+            self.status = ElevatorStatus.IDLE
             self.stops += 1
             self.total_time += 2
 
