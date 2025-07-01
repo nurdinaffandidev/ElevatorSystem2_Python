@@ -1,6 +1,7 @@
 import time
 from elevator.Elevator import Elevator
 from elevator.ElevatorRequest import ElevatorRequest
+from elevator.ElevatorStatus import ElevatorStatus
 
 
 def get_int_input(prompt, min_val=1):
@@ -165,7 +166,7 @@ def run_simulation(elevators, elevator_requests):
     all_done = False
     while not all_done:
         time.sleep(1)  # check every second
-        all_done = all(len(elevator.requests) == 0 and elevator.status == 'idle' for elevator in elevators)
+        all_done = all(len(elevator.requests) == 0 and elevator.status == ElevatorStatus.IDLE for elevator in elevators)
 
     # Stop elevators after work is done
     for elevator in elevators:
@@ -231,9 +232,18 @@ def get_summary(summary_dict, elevators):
     print("\nELEVATOR EFFICIENCY SCORES:")
     print("--------------------------------")
     for elevator in elevators:
-        print(f"| {elevator.name} SCORE= {elevator.get_efficiency_score():.4f} |\n"
+        score = 0
+        total_time = 0
+        stops = 0
+        if elevator.total_movement != 0:
+            score = elevator.get_efficiency_score()
+            total_time = elevator.total_time
+            stops = elevator.stops
+
+        print(f"| {elevator.name} SCORE= {score:.4f} |\n"
               f"| Movement: {elevator.total_movement} floors |\n"
-              f"| Stops: {elevator.stops} stops |\n| Time: {elevator.total_time}s |\n")
+              f"| Stops: {stops} stops |\n"
+              f"| Time: {total_time}s |\n")
 
 
 if __name__ == "__main__":
