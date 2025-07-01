@@ -9,26 +9,32 @@ class Elevator(threading.Thread):
         self.current_floor = starting_floor
         self.status = 'idle'
         self.requests = []
-        self.target_destination_floors = []  # destination queue
         self.stops = 0
+        self.total_movement = 0
+        self.total_time = 0
         self.lock = threading.Lock()
         self.reached_request_floor = False
+        self._stop_signal = threading.Event()
 
 
     def assign_request(self, request):
         with self.lock:
             self.requests.append(request)
-            self.target_destination_floors.append(request.destination_floor)
         print(f"<{self.name} assigned : [{request}]>")
 
 
+    def stop(self):
+        self._stop_signal.set()
+
+
     def run(self):
-        while True:
+        while not self._stop_signal.is_set():
             if self.status != 'idle':
                 print(f"<{self.name} - running elevator: {self.status}>")
             with self.lock:
                 if not self.requests:
                     time.sleep(1)
+                    self.total_time += 1
                     continue
                 # Get next request (FIFO)
                 current_request = self.requests.pop(0)
@@ -38,12 +44,12 @@ class Elevator(threading.Thread):
                 print(f"--> {self.name} moving to pickup [{current_request}] at floor {current_request.start_floor} | current floor: {self.current_floor}")
                 self.status = 'moving to pickup'
                 self.move_to_floor(current_request.start_floor)
+                self.stops += 1 # adding stop here for condition move to request's start floor (pickup)
 
             # 2. Simulate loading at pickup floor
             print(f"<< {self.name} picked up [{current_request}] at floor {current_request.start_floor} >>")
             self.status = 'loading'
             time.sleep(2)  # Simulate loading
-            self.stops += 1
 
             # 3. Move to destination floor
             print(f"--> {self.name} moving to drop-off [{current_request}] at floor {current_request.destination_floor} | current floor: {self.current_floor}")
@@ -56,6 +62,7 @@ class Elevator(threading.Thread):
             time.sleep(2)  # Simulate unloading
             self.status = 'idle'
             self.stops += 1
+            self.total_time += 2
 
 
     def move_to_floor(self, target_destination_floor):
@@ -66,26 +73,27 @@ class Elevator(threading.Thread):
             step = 1 if self.current_floor < target_destination_floor else -1
             self.current_floor += step
             total_step += step
+            self.total_time += 1  # 1 second per floor
             time.sleep(1)  # Simulate travel
             print(f"---> {self.name} moving to floor {self.current_floor}")
+
+        self.total_movement += abs(total_step)
         print(f"<{self.name}> moved from floor {tracked_current_floor} to {target_destination_floor} in {abs(total_step)} steps")
 
 
-    def unload_requests_at(self, floor):
-        self.stops += 1
-        with self.lock:
-            # store completed request
-            completed = [request for request in self.requests if request.destination_floor == floor]
-            # update list with uncompleted request
-            self.requests = [request for request in self.requests if request.destination_floor != floor]
-
-        for completed_request in completed:
-            print(f"<<{self.name} dropped off <{completed_request}> at floor {floor}>>")
-        time.sleep(2)  # Hold for 2 seconds during unloading
+    def get_efficiency_score(self, weight_movement=1, weight_stop=2, weight_time=0.5):
+        """
+            efficiency formula = 1 / ( weight_movement * self.total_movement +
+                               weight_stops * self.stops +
+                               weight_time * self.total_time )
+        """
+        return 1 / ( weight_movement * self.total_movement +
+                     weight_stop * self.stops +
+                     weight_time * self.total_time + 1e-5 ) # avoid division by zero
 
 
     def __str__(self):
         return f"Elevator({self.name})"
 
     def __repr__(self):
-        return f"Elevator({self.name}, {self.current_floor}, {self.status}, {self.target_destination_floors}, {self.stops})"
+        return f"Elevator({self.name}, {self.current_floor}, {self.status}, {self.stops})"
