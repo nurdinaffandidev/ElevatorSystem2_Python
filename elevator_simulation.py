@@ -1,3 +1,4 @@
+import time
 from elevator.Elevator import Elevator
 from elevator.ElevatorRequest import ElevatorRequest
 
@@ -90,14 +91,36 @@ def main():
 
 
 def run_simulation(elevators, elevator_requests):
+    summary_dict = dict()
+
     # Start all elevator threads
     for elevator in elevators:
         elevator.start()
+        summary_dict[elevator.name] = []
+
+    print("Assigning elevator requests...\n")
 
     # Assign requests to elevators (simple greedy logic)
     for request in elevator_requests:
         best_elevator = find_best_elevator(request, elevators)
         best_elevator.assign_request(request)
+        summary_dict[best_elevator.name].append(request)
+
+
+    # Wait for all elevators to finish their assigned requests
+    all_done = False
+    while not all_done:
+        time.sleep(1)  # check every second
+        all_done = all(len(elevator.requests) == 0 and elevator.status == 'idle' for elevator in elevators)
+
+    # Stop elevators after work is done
+    for elevator in elevators:
+        elevator.stop()
+
+    for elevator in elevators:
+        elevator.join()  # Wait for threads to stop
+
+    get_summary(summary_dict, elevators)
 
 
 def find_best_elevator(request, elevators):
@@ -121,6 +144,28 @@ def find_best_elevator(request, elevators):
 
     # Return best match
     return idle_closest[0] if idle_closest else closest_elevators[0]
+
+
+def get_summary(summary_dict, elevators):
+    print("\nMOVEMENT SUMMARY:")
+    print("----------------------")
+    for elevator_name, requests in summary_dict.items():
+        print(f"{elevator_name} :", end=" [")
+        if requests:
+            for request in requests:
+                if request is requests[-1]:
+                    print(request, end="]\n")
+                else:
+                    print(request, end=", ")
+        else:
+            print(" ]")
+
+    print("\nELEVATOR EFFICIENCY SCORES:")
+    print("--------------------------------")
+    for elevator in elevators:
+        print(f"| {elevator.name} SCORE= {elevator.get_efficiency_score():.4f} |\n"
+              f"| Movement: {elevator.total_movement} floors |\n"
+              f"| Stops: {elevator.stops} stops |\n| Time: {elevator.total_time}s |\n")
 
 
 if __name__ == "__main__":
