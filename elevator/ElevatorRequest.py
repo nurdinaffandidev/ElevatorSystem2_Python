@@ -31,4 +31,4 @@ class ElevatorRequest:
             return 'same floor'
 
     def __str__(self):
-        return f"Request: {self.start_floor} → {self.destination_floor} ({self.direction})"
+        return f"Request: {self.start_floor} → {self.destination_floor} ({self.direction.upper()})"
