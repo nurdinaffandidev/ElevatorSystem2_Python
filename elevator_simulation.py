@@ -178,34 +178,84 @@ def run_simulation(elevators, elevator_requests):
     get_summary(summary_dict, elevators)
 
 
+# original logic
+# def find_best_elevator(request, elevators):
+#     """
+#         Return the best elevator for a given request.
+#         1. Finds all elevators closest to the request start floor.
+#         2. Among those, prioritizes idle elevators (e.requests is empty).
+#         3. Falls back to any one if none are idle.
+#
+#         Args:
+#             request (ElevatorRequest): The request to fulfill.
+#             elevators (list): List of Elevator objects.
+#
+#         Returns:
+#             Elevator: The best available elevator.
+#     """
+#     # Calculate (elevator, distance)
+#     distances = [(elevator, abs(elevator.current_floor - request.start_floor)) for elevator in elevators]
+#
+#     # Find the minimum distance
+#     min_distance = min(distances, key=lambda x: x[1])[1]
+#
+#     # Get all elevators at that distance
+#     closest_elevators = [elevator for elevator, distance in distances if distance == min_distance]
+#
+#     # Preferred idle ones
+#     idle_closest = [elevator for elevator in closest_elevators if not elevator.requests]
+#
+#     # Return best match
+#     return idle_closest[0] if idle_closest else closest_elevators[0]
+
+
+# enhanced logic
 def find_best_elevator(request, elevators):
     """
-        Return the best elevator for a given request.
-        1. Finds all elevators closest to the request start floor.
-        2. Among those, prioritizes idle elevators (e.requests is empty).
-        3. Falls back to any one if none are idle.
-
-        Args:
-            request (ElevatorRequest): The request to fulfill.
-            elevators (list): List of Elevator objects.
-
-        Returns:
-            Elevator: The best available elevator.
+    Return the best elevator for a given request, based on:
+    - Direction compatibility
+    - Pickup/drop-off alignment with elevator path
+    - Distance
+    - Request load
     """
-    # Calculate (elevator, distance)
-    distances = [(elevator, abs(elevator.current_floor - request.start_floor)) for elevator in elevators]
+    candidates = []
 
-    # Find the minimum distance
-    min_distance = min(distances, key=lambda x: x[1])[1]
+    for elevator in elevators:
+        distance = abs(elevator.current_floor - request.start_floor)
+        is_idle = elevator.status == ElevatorStatus.IDLE
+        load = len(elevator.requests)
+        going_up = request.direction == 'up'
+        can_pick_on_route = False
 
-    # Get all elevators at that distance
-    closest_elevators = [elevator for elevator, distance in distances if distance == min_distance]
+        if is_idle:
+            can_pick_on_route = True
+        elif elevator.requests:
+            first_req = elevator.requests[0]
+            elevator_direction = 'up' if first_req.destination_floor > elevator.current_floor else 'down'
 
-    # Preferred idle ones
-    idle_closest = [elevator for elevator in closest_elevators if not elevator.requests]
+            # Pickup between current position and destination, same direction
+            if going_up and elevator_direction == 'up':
+                can_pick_on_route = (
+                    elevator.current_floor <= request.start_floor <= first_req.destination_floor and
+                    request.start_floor < request.destination_floor <= first_req.destination_floor
+                )
+            elif not going_up and elevator_direction == 'down':
+                can_pick_on_route = (
+                    elevator.current_floor >= request.start_floor >= first_req.destination_floor and
+                    request.start_floor > request.destination_floor >= first_req.destination_floor
+                )
 
-    # Return best match
-    return idle_closest[0] if idle_closest else closest_elevators[0]
+        # Score based on multiple weighted factors
+        score = 0
+        score += 5 if is_idle else 0  # idle elevators are highly available
+        score += 3 if can_pick_on_route else 0  # favor elevators that can serve inline
+        score -= distance * 0.2  # penalize far elevators
+        score -= load * 0.5  # penalize heavily loaded elevators
+
+        candidates.append((elevator, score))
+
+    best_elevator = max(candidates, key=lambda x: x[1])[0]
+    return best_elevator
 
 
 def get_summary(summary_dict, elevators):
