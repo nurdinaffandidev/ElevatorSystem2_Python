@@ -1,6 +1,5 @@
 import threading
 import time
-from asyncio import SelectorEventLoop
 
 from elevator.ElevatorStatus import ElevatorStatus
 
