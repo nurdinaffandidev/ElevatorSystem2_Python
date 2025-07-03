@@ -1,0 +1,224 @@
+Great question! In Python, when working with **threads**, the `.join()` function is used to **wait for a thread to finish** before continuing execution.
+
+---
+
+## 🧠 `.join()` — In Simple Terms
+
+> `.join()` tells the main thread:
+> "Pause here and wait until this other thread is done."
+
+---
+
+## ✅ Why It’s Important
+
+When you start a thread using `.start()`, it runs **concurrently** (in the background).
+If your main program finishes before the thread does, your thread may get **killed prematurely**, or your test may **continue before the thread has finished its work**.
+
+---
+
+## 🧪 Example
+
+```python
+import threading
+import time
+
+def do_work():
+    print("Thread: Starting work")
+    time.sleep(2)
+    print("Thread: Work done")
+
+thread = threading.Thread(target=do_work)
+
+thread.start()      # Start the thread
+thread.join()       # Wait until it finishes
+
+print("Main thread: Done waiting!")
+```
+
+### ✅ Output:
+
+```
+Thread: Starting work
+Thread: Work done
+Main thread: Done waiting!
+```
+
+Without `join()`, the "Main thread: Done waiting!" line could print **before** the thread finishes its work — which is often **not what you want**, especially in tests.
+
+---
+
+## ⏱️ Optional: `timeout`
+
+You can give `.join()` a timeout to avoid blocking forever:
+
+```python
+thread.join(timeout=1)  # Wait max 1 second
+```
+
+But:
+
+* If the thread takes longer than 1 sec, your program continues anyway.
+* Always check `thread.is_alive()` after if needed.
+
+---
+
+## ✅ Summary
+
+| `.join()` Does                               | Why You Use It                             |
+| -------------------------------------------- | ------------------------------------------ |
+| Blocks until the thread finishes             | To ensure thread work is completed         |
+| Prevents main program from exiting too early | Critical in simulations, servers, or tests |
+| Can take optional `timeout`                  | To avoid hanging forever                   |
+
+---
+
+======================================================
+
+Here's a **visualization** of how threading and `.join()` works — think of it like a timeline showing when the **main thread** and a **worker thread** are active.
+
+---
+
+## 🧪 Example Code (simplified):
+
+```python
+import threading
+import time
+
+def worker():
+    print("[Worker] Starting...")
+    time.sleep(2)
+    print("[Worker] Finished!")
+
+thread = threading.Thread(target=worker)
+
+print("[Main] Starting worker thread")
+thread.start()
+
+print("[Main] Waiting for worker to finish")
+thread.join()
+
+print("[Main] All done!")
+```
+
+---
+
+## ⏳ Timeline Visualization
+
+```
+Time     | Main Thread               | Worker Thread
+---------|---------------------------|------------------------
+T+0s     | Starting worker thread    | -
+T+0s     | Waiting for worker...     | Starting...
+T+1s     | Still waiting...          | Sleeping (doing work)
+T+2s     | Still waiting...          | Finished!
+T+2s     | All done!                 | -
+```
+
+---
+
+## 🧠 What’s Happening
+
+* `thread.start()` → The **worker thread** begins running independently.
+* `thread.join()` → The **main thread blocks**, waiting for the worker.
+* Once the worker finishes after 2 seconds, `join()` unblocks.
+* Then the main thread prints `"All done!"`.
+
+---
+
+## 💥 Without `join()`?
+
+```
+Time     | Main Thread               | Worker Thread
+---------|---------------------------|------------------------
+T+0s     | Starting worker thread    | -
+T+0s     | Worker running...         | Starting...
+T+0s     | Main prints "All done!"   | Sleeping...
+T+2s     | (Main already exited!)    | Finished!
+```
+
+* `Main thread` doesn't wait — exits early.
+* The worker thread *might* get interrupted, especially in test scripts.
+
+---
+
+Let me know if you'd like an animation version, ASCII thread tree, or visualization with **multiple threads running and joining**!
+
+
+======================================================
+The sequence:
+
+```python
+for elevator in elevators:
+    elevator.stop()
+
+for elevator in elevators:
+    elevator.join()
+```
+
+is **very intentional** and **important** in threaded programs like this.
+
+---
+
+## 🔁 Recap of `.stop()` and `.join()`
+
+* `elevator.stop()` sets a **signal** (via `threading.Event`) to tell the elevator's thread:
+  👉 **"Please finish up and exit your loop."**
+
+* `elevator.join()` tells the **main thread to wait** until the elevator thread **fully stops** and exits.
+
+---
+
+## ✅ Why `.stop()` must come **before** `.join()`
+
+### 🔥 Reason:
+
+If you call `.join()` **before** `.stop()`, the `run()` loop in the elevator thread might **never exit**, because:
+
+```python
+while not self._stop_signal.is_set():
+    ...
+```
+
+That loop will just keep running until `.stop()` is called.
+So if you `.join()` before `.stop()` — you’re **waiting for something that won’t happen**, and your program **hangs forever**. 😵
+
+---
+
+## 📦 Think of It Like This:
+
+```
+Thread.run() => while not stop_signal: do work...
+
+Main thread:
+    1. .stop() => set stop_signal ✅
+    2. .join() => wait for thread to exit ✅
+
+Wrong order:
+    1. .join() => wait forever ❌
+    2. .stop() => too late — won't even get here if stuck
+```
+
+---
+
+## ⏱️ Timeline Visualization
+
+| Time | Elevator Thread             | Main Thread          |
+| ---- | --------------------------- | -------------------- |
+| T+0  | Running `while not stopped` | Assign requests      |
+| T+1  | Done with requests, IDLE    | Calls `.stop()`      |
+| T+2  | Sees signal, exits loop     | Calls `.join()`      |
+| T+3  | Fully stopped               | Continues to summary |
+
+---
+
+## ✅ Summary
+
+| Action                     | Why                                                |
+| -------------------------- | -------------------------------------------------- |
+| `.stop()` before `.join()` | Signals thread to stop so it **can** be joined     |
+| `.join()` after `.stop()`  | Waits for thread to fully exit before continuing   |
+| Needed in simulation       | Ensures all elevators shut down cleanly after work |
+
+---
+
+Let me know if you’d like a visual of multiple elevators stopping and joining concurrently!
