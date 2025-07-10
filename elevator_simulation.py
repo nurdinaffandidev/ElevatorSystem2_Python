@@ -1,4 +1,4 @@
-import time
+import time, json
 from elevator.Elevator import Elevator
 from elevator.ElevatorRequest import ElevatorRequest
 from elevator.ElevatorStatus import ElevatorStatus
@@ -209,6 +209,11 @@ def run_simulation(elevators, elevator_requests):
 #     return idle_closest[0] if idle_closest else closest_elevators[0]
 
 
+def load_weights(filepath="weights.json"):
+    with open(filepath, 'r') as file:
+        return json.load(file)
+
+
 # enhanced logic
 def find_best_elevator(request, elevators):
     """
@@ -218,6 +223,7 @@ def find_best_elevator(request, elevators):
     - Distance
     - Request load
     """
+    weights = load_weights()
     candidates = []
 
     for elevator in elevators:
@@ -247,10 +253,10 @@ def find_best_elevator(request, elevators):
 
         # Score based on multiple weighted factors
         score = 0
-        score += 5 if is_idle else 0  # idle elevators are highly available
-        score += 3 if can_pick_on_route else 0  # favor elevators that can serve inline
-        score -= distance * 0.2  # penalize far elevators
-        score -= load * 0.5  # penalize heavily loaded elevators
+        score += weights.get("idle_bonus", 0) if is_idle else 0  # idle elevators are highly available
+        score += weights.get("inline_pickup_bonus", 0) if can_pick_on_route else 0  # favor elevators that can serve inline
+        score -= distance * weights.get("distance_penalty", 0) # penalize far elevators
+        score -= load * weights.get("load_penalty", 0)  # penalize heavily loaded elevators
 
         candidates.append((elevator, score))
 
