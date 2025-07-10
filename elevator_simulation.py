@@ -1,7 +1,9 @@
+import threading
 import time, json
 from elevator.Elevator import Elevator
 from elevator.ElevatorRequest import ElevatorRequest
 from elevator.ElevatorStatus import ElevatorStatus
+from elevator_gui.ElevatorGUI import ElevatorGUI
 
 
 def get_int_input(prompt, min_val=1):
@@ -134,79 +136,75 @@ def main():
             print(end="\n")
 
             # to run simulation
-            run_simulation(elevators, cleaned_elevator_requests)
+            run_simulation_with_gui(elevators, cleaned_elevator_requests, num_floors)
             break
 
 
-def run_simulation(elevators, elevator_requests):
+def run_simulation_with_gui(elevators, elevator_requests, num_floors):
     """
-        Runs the simulation by assigning requests to elevators and monitoring completion.
+        Runs the elevator simulation with a GUI and background processing.
+
+        This function integrates a Tkinter GUI to visually track elevator movements
+        while handling elevator request assignments and elevator thread execution
+        in a background thread to ensure the GUI remains responsive.
 
         Args:
-            elevators (list): List of Elevator objects.
-            elevator_requests (list): List of ElevatorRequest objects.
+            elevators (list): List of Elevator objects participating in the simulation.
+            elevator_requests (list): List of ElevatorRequest objects to assign and process.
+            num_floors (int): The number of floors in the building.
+
+        Behavior:
+            - Displays a GUI showing elevator positions and movements.
+            - Assigns elevator requests to the best elevator using scoring logic.
+            - Starts all elevator threads to process assigned requests.
+            - Waits in the background until all elevator work is completed.
+            - Stops and joins all elevator threads gracefully.
+            - Outputs a summary report to the terminal upon completion.
     """
-    summary_dict = dict()
+    summary_dict = {e.name: [] for e in elevators}
+    gui = ElevatorGUI(elevators, num_floors)
 
-    # Start all elevator threads
-    for elevator in elevators:
-        elevator.start()
-        summary_dict[elevator.name] = []
+    def background_logic():
+        """
+           Background simulation logic that assigns requests and runs elevators.
 
-    print("Assigning elevator requests...\n")
+           This function runs in a separate thread to:
+           - Assign all elevator requests.
+           - Start elevator threads.
+           - Wait for elevators to finish.
+           - Stop and join threads.
+           - Print a final simulation summary.
+       """
+        print("Assigning elevator requests...\n")
+        for request in elevator_requests:
+            best_elevator = find_best_elevator(request, elevators)
+            best_elevator.assign_request(request)
+            summary_dict[best_elevator.name].append(request)
 
-    # Assign requests to elevators (simple greedy logic)
-    for request in elevator_requests:
-        best_elevator = find_best_elevator(request, elevators)
-        best_elevator.assign_request(request)
-        summary_dict[best_elevator.name].append(request)
+        for elevator in elevators:
+            elevator.start()
 
+        # Wait until all elevators complete their work
+        while True:
+            time.sleep(1)
+            all_done = all(
+                len(elevator.requests) == 0 and elevator.status == ElevatorStatus.IDLE
+                for elevator in elevators
+            )
+            if all_done:
+                break
 
-    # Wait for all elevators to finish their assigned requests
-    all_done = False
-    while not all_done:
-        time.sleep(1)  # check every second
-        all_done = all(len(elevator.requests) == 0 and elevator.status == ElevatorStatus.IDLE for elevator in elevators)
+        for elevator in elevators:
+            elevator.stop()
+        for elevator in elevators:
+            elevator.join()
 
-    # Stop elevators after work is done
-    for elevator in elevators:
-        elevator.stop()
+        # Show summary in terminal (or can be extended to GUI)
+        get_summary(summary_dict, elevators)
 
-    for elevator in elevators:
-        elevator.join()  # Wait for threads to stop
-
-    get_summary(summary_dict, elevators)
-
-
-# original logic
-# def find_best_elevator(request, elevators):
-#     """
-#         Return the best elevator for a given request.
-#         1. Finds all elevators closest to the request start floor.
-#         2. Among those, prioritizes idle elevators (e.requests is empty).
-#         3. Falls back to any one if none are idle.
-#
-#         Args:
-#             request (ElevatorRequest): The request to fulfill.
-#             elevators (list): List of Elevator objects.
-#
-#         Returns:
-#             Elevator: The best available elevator.
-#     """
-#     # Calculate (elevator, distance)
-#     distances = [(elevator, abs(elevator.current_floor - request.start_floor)) for elevator in elevators]
-#
-#     # Find the minimum distance
-#     min_distance = min(distances, key=lambda x: x[1])[1]
-#
-#     # Get all elevators at that distance
-#     closest_elevators = [elevator for elevator, distance in distances if distance == min_distance]
-#
-#     # Preferred idle ones
-#     idle_closest = [elevator for elevator in closest_elevators if not elevator.requests]
-#
-#     # Return best match
-#     return idle_closest[0] if idle_closest else closest_elevators[0]
+    # Start background simulation after GUI launches
+    threading.Thread(target=background_logic, daemon=True).start()
+    gui.mainloop()
 
 
 def load_weights(filepath="weights.json"):
@@ -301,6 +299,121 @@ def get_summary(summary_dict, elevators):
               f"| Stops: {stops} stops |\n"
               f"| Time: {total_time}s |\n")
 
+
+# # replaced with run_simulation_with_gui
+# def run_simulation(elevators, elevator_requests):
+#     """
+#         Runs the simulation by assigning requests to elevators and monitoring completion.
+#
+#         Args:
+#             elevators (list): List of Elevator objects.
+#             elevator_requests (list): List of ElevatorRequest objects.
+#     """
+#     summary_dict = dict()
+#
+#     # Start all elevator threads
+#     for elevator in elevators:
+#         elevator.start()
+#         summary_dict[elevator.name] = []
+#
+#     print("Assigning elevator requests...\n")
+#
+#     # Assign requests to elevators (simple greedy logic)
+#     for request in elevator_requests:
+#         best_elevator = find_best_elevator(request, elevators)
+#         best_elevator.assign_request(request)
+#         summary_dict[best_elevator.name].append(request)
+#
+#
+#     # Wait for all elevators to finish their assigned requests
+#     all_done = False
+#     while not all_done:
+#         time.sleep(1)  # check every second
+#         all_done = all(len(elevator.requests) == 0 and elevator.status == ElevatorStatus.IDLE for elevator in elevators)
+#
+#     # Stop elevators after work is done
+#     for elevator in elevators:
+#         elevator.stop()
+#
+#     for elevator in elevators:
+#         elevator.join()  # Wait for threads to stop
+#
+#     get_summary(summary_dict, elevators)
+#
+#
+# # for testing
+# def run_simulation_gui(elevators, requests, num_floors):
+#     """
+#         Launches the elevator simulation with a Tkinter GUI interface.
+#
+#         This function initializes the GUI to visualize elevator movements and
+#         starts a background thread to handle request assignment and elevator activity.
+#
+#         Args:
+#             elevators (list): List of Elevator objects to simulate.
+#             requests (list): List of ElevatorRequest objects to assign.
+#             num_floors (int): The total number of floors in the building.
+#
+#         Behavior:
+#             - Initializes and displays the GUI with elevator positions.
+#             - Runs elevator logic in a background thread so GUI remains responsive.
+#             - Assigns requests to the best elevators using scoring logic.
+#             - Starts all elevator threads to process assigned requests.
+#             - Waits until GUI closes, then stops and joins all elevator threads.
+#     """
+#     gui = ElevatorGUI(elevators, num_floors)
+#
+#     def background_logic():
+#         """
+#             Background logic to assign requests and start elevator threads.
+#             Runs in a separate thread to prevent blocking the GUI.
+#         """
+#         # Assign and run simulation in background thread
+#         for r in requests:
+#             best = find_best_elevator(r, elevators)
+#             best.assign_request(r)
+#
+#         for e in elevators:
+#             e.start()
+#
+#     # Start simulation logic after GUI is up
+#     threading.Thread(target=background_logic, daemon=True).start()
+#     gui.mainloop()
+#
+#     for e in elevators:
+#         e.stop()
+#         e.join()
+
+
+# original logic
+# def find_best_elevator(request, elevators):
+#     """
+#         Return the best elevator for a given request.
+#         1. Finds all elevators closest to the request start floor.
+#         2. Among those, prioritizes idle elevators (e.requests is empty).
+#         3. Falls back to any one if none are idle.
+#
+#         Args:
+#             request (ElevatorRequest): The request to fulfill.
+#             elevators (list): List of Elevator objects.
+#
+#         Returns:
+#             Elevator: The best available elevator.
+#     """
+#     # Calculate (elevator, distance)
+#     distances = [(elevator, abs(elevator.current_floor - request.start_floor)) for elevator in elevators]
+#
+#     # Find the minimum distance
+#     min_distance = min(distances, key=lambda x: x[1])[1]
+#
+#     # Get all elevators at that distance
+#     closest_elevators = [elevator for elevator, distance in distances if distance == min_distance]
+#
+#     # Preferred idle ones
+#     idle_closest = [elevator for elevator in closest_elevators if not elevator.requests]
+#
+#     # Return best match
+#     return idle_closest[0] if idle_closest else closest_elevators[0]
 
 if __name__ == "__main__":
     main()
