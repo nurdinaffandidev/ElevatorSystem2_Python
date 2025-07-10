@@ -1,4 +1,4 @@
-Great question! In Python, when working with **threads**, the `.join()` function is used to **wait for a thread to finish** before continuing execution.
+In Python, when working with **threads**, the `.join()` function is used to **wait for a thread to finish** before continuing execution.
 
 ---
 
@@ -12,7 +12,8 @@ Great question! In Python, when working with **threads**, the `.join()` function
 ## ✅ Why It’s Important
 
 When you start a thread using `.start()`, it runs **concurrently** (in the background).
-If your main program finishes before the thread does, your thread may get **killed prematurely**, or your test may **continue before the thread has finished its work**.
+If your main program finishes before the thread does, your thread may get **killed prematurely**,
+or your test may **continue before the thread has finished its work**.
 
 ---
 
